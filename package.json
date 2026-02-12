@@ -2,6 +2,8 @@
   "name": "cannagest",
   "private": true,
   "version": "0.1.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Abraham Leiro <abraham@cpsoftware.es>",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
