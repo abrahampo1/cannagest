@@ -1,11 +1,12 @@
 {
   "name": "cannagest",
+  "description": "Sistema de gestión integral para cooperativas cannábicas",
   "private": true,
   "version": "0.1.0",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Abraham Leiro <abraham@cpsoftware.es>",
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -39,6 +40,27 @@
     "xlsx": "^0.18.5",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
+  },
+  "build": {
+    "appId": "es.cpsoftware.cannagest",
+    "productName": "CannaGest",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "prisma/migrations/**/*"
+    ],
+    "afterPack": "./scripts/afterPack.cjs",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

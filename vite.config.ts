@@ -10,6 +10,7 @@ export default defineConfig({
     electron([
       {
         // Main process (must be CJS for @prisma/client compatibility)
+        // Output as .cjs so Node.js treats it as CJS despite "type": "module" in package.json
         entry: 'electron/main.ts',
         vite: {
           build: {
@@ -17,18 +18,17 @@ export default defineConfig({
             lib: {
               entry: 'electron/main.ts',
               formats: ['cjs'],
+              fileName: () => 'main.cjs',
             },
             rollupOptions: {
-              external: ['prisma', '@prisma/client', 'better-sqlite3', 'electron-store', 'bcryptjs', 'archiver', 'adm-zip'],
-              output: {
-                entryFileNames: '[name].js',
-              }
+              external: ['prisma', '@prisma/client', 'better-sqlite3', 'bcryptjs', 'archiver', 'adm-zip'],
             }
           }
         }
       },
       {
         // Preload script (must be CJS for Electron's sandboxed preload)
+        // Output as .cjs so Node.js treats it as CJS despite "type": "module" in package.json
         entry: 'electron/preload.ts',
         onstart(options) {
           options.reload();
@@ -39,12 +39,8 @@ export default defineConfig({
             lib: {
               entry: 'electron/preload.ts',
               formats: ['cjs'],
+              fileName: () => 'preload.cjs',
             },
-            rollupOptions: {
-              output: {
-                entryFileNames: '[name].js',
-              }
-            }
           }
         }
       }
