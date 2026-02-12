@@ -33,3 +33,4 @@ prisma/migrations
 # Environment
 .env
 .env.local
+.claude
