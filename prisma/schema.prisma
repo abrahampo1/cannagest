@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTENTICACIÓN Y USUARIOS
+// ============================================
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // Hash bcrypt
+  email     String?  @unique
+  role      String     @default("EMPLOYEE")
+  isActive  Boolean  @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  nfcTagId  String?  @unique // UID del llavero NFC
+
+  // Relaciones
+  sales           Sale[]
+  expenses        Expense[]
+  cashRegisters   CashRegister[]
+  pointsLoads     PointsTransaction[] @relation("LoadedBy")
+  stockMovements  StockMovement[]
+
+  @@map("users")
+}
+
+
+// ============================================
+// SOCIOS (MEMBERS)
+// ============================================
+
+model Member {
+  id              String   @id @default(uuid())
+
+  // Datos personales (algunos encriptados)
+  firstName       String
+  lastName        String
+  dni             String   @unique // Encriptado en app
+  email           String?  @unique // Encriptado
+  phone           String?  // Encriptado
+  address         String?  // Encriptado
+  dateOfBirth     String?  // Encriptado (stored as ISO string)
+  photo           String?  // Path a imagen
+  nfcTagId        String?  @unique // UID del llavero NFC
+
+  // Membresía
+  membershipType  String @default("NO_FEE")
+  membershipFee   Float    @default(0)
+  membershipStart DateTime?
+  membershipEnd   DateTime?
+
+  // Estado
+  isActive        Boolean  @default(true)
+  status          String @default("ACTIVE")
+
+  // Puntos
+  pointsBalance   Float    @default(0)
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Recomendación
+  referredById    String?
+  referredBy      Member?  @relation("Referrals", fields: [referredById], references: [id])
+  referrals       Member[] @relation("Referrals")
+
+  // Relaciones
+  purchases           Sale[]
+  pointsTransactions  PointsTransaction[]
+  membershipPayments  MembershipPayment[]
+
+  @@map("members")
+}
+
+
+
+// ============================================
+// PAGOS DE CUOTAS/MEMBRESÍAS
+// ============================================
+
+model MembershipPayment {
+  id          String   @id @default(uuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id])
+
+  amount      Float
+  paymentDate DateTime @default(now())
+  periodStart DateTime
+  periodEnd   DateTime
+  paymentType String
+
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@map("membership_payments")
+}
+
+// ============================================
+// SISTEMA DE PUNTOS
+// ============================================
+
+model PointsTransaction {
+  id            String   @id @default(uuid())
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id])
+
+  type          String
+  amount        Float    // Puntos (puede ser negativo para consumo)
+  balanceBefore Float    // Balance antes de la transacción
+  balanceAfter  Float    // Balance después de la transacción
+
+  // Referencias
+  saleId        String?  @unique
+  sale          Sale?    @relation(fields: [saleId], references: [id])
+
+  // Usuario que realizó la operación
+  loadedById    String?
+  loadedBy      User?    @relation("LoadedBy", fields: [loadedById], references: [id])
+
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@map("points_transactions")
+  @@index([memberId])
+  @@index([type])
+}
+
+
+// ============================================
+// PRODUCTOS Y CATEGORÍAS
+// ============================================
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+
+  products    Product[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id              String   @id @default(uuid())
+
+  name            String
+  description     String?
+  sku             String?  @unique
+
+  // Precio en puntos
+  pointsPrice     Float
+
+  // Categoría
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+
+  // Stock
+  currentStock    Float    @default(0)
+  minStock        Float    @default(0) // Para alertas
+  unit            String   @default("unit") // unidad, gramo, ml, etc.
+
+  // Estado
+  isActive        Boolean  @default(true)
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  saleItems       SaleItem[]
+  stockMovements  StockMovement[]
+
+  @@map("products")
+  @@index([categoryId])
+}
+
+// ============================================
+// INVENTARIO
+// ============================================
+
+model StockMovement {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+
+  type        String
+  quantity    Float
+
+  stockBefore Float    // Stock antes del movimiento
+  stockAfter  Float    // Stock después del movimiento
+
+  reason      String?
+  notes       String?
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@map("stock_movements")
+  @@index([productId])
+  @@index([type])
+}
+
+
+// ============================================
+// VENTAS (CAJA)
+// ============================================
+
+model Sale {
+  id              String   @id @default(uuid())
+  saleNumber      String   @unique // Número correlativo
+
+  // Socio
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id])
+
+  // Totales
+  totalPoints     Float    // Total en puntos
+  totalItems      Int      // Cantidad de items
+
+  // Usuario que realizó la venta
+  soldById        String
+  soldBy          User     @relation(fields: [soldById], references: [id])
+
+  // Caja asociada
+  cashRegisterId  String?
+  cashRegister    CashRegister? @relation(fields: [cashRegisterId], references: [id])
+
+  // Estado
+  status          String @default("COMPLETED")
+
+  notes           String?
+  saleDate        DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  // Relaciones
+  items           SaleItem[]
+  pointsTransaction PointsTransaction?
+
+  @@map("sales")
+  @@index([memberId])
+  @@index([soldById])
+  @@index([saleDate])
+}
+
+
+model SaleItem {
+  id          String  @id @default(uuid())
+  saleId      String
+  sale        Sale    @relation(fields: [saleId], references: [id])
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+
+  quantity    Float
+  pointsPrice Float   // Precio unitario en puntos en el momento de la venta
+  totalPoints Float   // quantity * pointsPrice
+
+  createdAt   DateTime @default(now())
+
+  @@map("sale_items")
+  @@index([saleId])
+}
+
+// ============================================
+// GASTOS OPERATIVOS
+// ============================================
+
+model Expense {
+  id              String   @id @default(uuid())
+
+  description     String
+  amount          Float
+  category        String
+
+  // Caja asociada
+  cashRegisterId  String?
+  cashRegister    CashRegister? @relation(fields: [cashRegisterId], references: [id])
+
+  // Usuario que registró el gasto
+  recordedById    String
+  recordedBy      User     @relation(fields: [recordedById], references: [id])
+
+  expenseDate     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  notes           String?
+
+  @@map("expenses")
+  @@index([category])
+  @@index([expenseDate])
+}
+
+
+// ============================================
+// ARQUEOS DE CAJA
+// ============================================
+
+model CashRegister {
+  id              String   @id @default(uuid())
+
+  openDate        DateTime @default(now())
+  closeDate       DateTime?
+
+  // Usuario que abre/cierra
+  openedById      String
+  openedBy        User     @relation(fields: [openedById], references: [id])
+
+  // Montos iniciales
+  initialCash     Float
+
+  // Montos calculados
+  totalSales      Float    @default(0)
+  totalExpenses   Float    @default(0)
+  expectedCash    Float    @default(0) // initialCash + totalSales - totalExpenses
+
+  // Arqueo final
+  actualCash      Float?   // Lo que realmente hay al cerrar
+  difference      Float?   // actualCash - expectedCash
+
+  // Estado
+  status          String @default("OPEN")
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  sales           Sale[]
+  expenses        Expense[]
+
+  @@map("cash_registers")
+  @@index([status])
+  @@index([openDate])
+}
+
