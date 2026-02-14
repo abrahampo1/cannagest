@@ -133,9 +133,72 @@ export async function ensureDatabaseReady(prisma: PrismaClient): Promise<void> {
   }
 
   // Incremental migrations for existing databases
+  await makeEmailNullable(prisma)
   await addNfcTagColumn(prisma)
   await addNfcTagColumnToUsers(prisma)
   await addReferredByColumn(prisma)
+}
+
+/**
+ * Makes email column nullable in members table (incremental migration for older DBs)
+ */
+async function makeEmailNullable(prisma: PrismaClient): Promise<void> {
+  try {
+    const cols = await prisma.$queryRawUnsafe<{ name: string; notnull: number }[]>(
+      `PRAGMA table_info('members')`
+    )
+    const emailCol = cols.find(c => c.name === 'email')
+    if (!emailCol || emailCol.notnull === 0) return
+
+    log.info('Making email column nullable in members table...')
+    await prisma.$executeRawUnsafe(`
+      PRAGMA defer_foreign_keys=ON;
+    `)
+    await prisma.$executeRawUnsafe(`
+      PRAGMA foreign_keys=OFF;
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "new_members" AS SELECT * FROM "members"
+    `)
+    await prisma.$executeRawUnsafe(`DROP TABLE "members"`)
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "members" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "firstName" TEXT NOT NULL,
+        "lastName" TEXT NOT NULL,
+        "dni" TEXT NOT NULL,
+        "email" TEXT,
+        "phone" TEXT,
+        "address" TEXT,
+        "dateOfBirth" TEXT,
+        "photo" TEXT,
+        "nfcTagId" TEXT,
+        "membershipType" TEXT NOT NULL DEFAULT 'NO_FEE',
+        "membershipFee" REAL NOT NULL DEFAULT 0,
+        "membershipStart" DATETIME,
+        "membershipEnd" DATETIME,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+        "pointsBalance" REAL NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        "referredById" TEXT,
+        CONSTRAINT "members_referredById_fkey" FOREIGN KEY ("referredById") REFERENCES "members" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+      )
+    `)
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "members" SELECT * FROM "new_members"
+    `)
+    await prisma.$executeRawUnsafe(`DROP TABLE "new_members"`)
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "members_dni_key" ON "members"("dni")`)
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "members_email_key" ON "members"("email")`)
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "members_nfcTagId_key" ON "members"("nfcTagId")`)
+    await prisma.$executeRawUnsafe(`PRAGMA foreign_keys=ON;`)
+    await prisma.$executeRawUnsafe(`PRAGMA defer_foreign_keys=OFF;`)
+    log.info('Email column is now nullable')
+  } catch (err: any) {
+    log.error('Failed to make email nullable', err)
+  }
 }
 
 /**
@@ -223,7 +286,7 @@ CREATE TABLE IF NOT EXISTS "members" (
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "dni" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
+    "email" TEXT,
     "phone" TEXT,
     "address" TEXT,
     "dateOfBirth" TEXT,

@@ -21,7 +21,7 @@ export default defineConfig({
               fileName: () => 'main.cjs',
             },
             rollupOptions: {
-              external: ['prisma', '@prisma/client', 'better-sqlite3', 'bcryptjs', 'archiver', 'adm-zip'],
+              external: ['electron', 'prisma', '@prisma/client', 'better-sqlite3', 'bcryptjs', 'archiver', 'adm-zip'],
             }
           }
         }
@@ -41,6 +41,9 @@ export default defineConfig({
               formats: ['cjs'],
               fileName: () => 'preload.cjs',
             },
+            rollupOptions: {
+              external: ['electron'],
+            }
           }
         }
       }
