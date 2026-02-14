@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="public/icons/icon.png" alt="CannaGest" width="120" />
-</p>
 
 <h1 align="center">CannaGest</h1>
 
