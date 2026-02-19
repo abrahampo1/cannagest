@@ -31,6 +31,7 @@
     "date-fns": "^4.1.0",
     "electron-store": "^11.0.2",
     "jspdf": "^4.1.0",
+    "lightningcss-darwin-x64": "^1.31.1",
     "lucide-react": "^0.563.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -10,25 +10,27 @@ export default defineConfig({
     electron([
       {
         // Main process (must be CJS for @prisma/client compatibility)
-        // Output as .cjs so Node.js treats it as CJS despite "type": "module" in package.json
+        // lib: false overrides vite-plugin-electron's default which adds formats:['es']
+        // when package.json has "type":"module". mergeConfig concatenates arrays, so
+        // ['es']+['cjs'] would produce two builds and the ESM overwrites the CJS output.
         entry: 'electron/main.ts',
         vite: {
           build: {
             outDir: 'dist-electron',
-            lib: {
-              entry: 'electron/main.ts',
-              formats: ['cjs'],
-              fileName: () => 'main.cjs',
-            },
+            lib: false as any,
             rollupOptions: {
+              input: 'electron/main.ts',
               external: ['electron', 'prisma', '@prisma/client', 'better-sqlite3', 'bcryptjs', 'archiver', 'adm-zip'],
+              output: {
+                format: 'cjs',
+                entryFileNames: 'main.cjs',
+              },
             }
           }
         }
       },
       {
         // Preload script (must be CJS for Electron's sandboxed preload)
-        // Output as .cjs so Node.js treats it as CJS despite "type": "module" in package.json
         entry: 'electron/preload.ts',
         onstart(options) {
           options.reload();
@@ -36,13 +38,14 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron',
-            lib: {
-              entry: 'electron/preload.ts',
-              formats: ['cjs'],
-              fileName: () => 'preload.cjs',
-            },
+            lib: false as any,
             rollupOptions: {
+              input: 'electron/preload.ts',
               external: ['electron'],
+              output: {
+                format: 'cjs',
+                entryFileNames: 'preload.cjs',
+              },
             }
           }
         }

@@ -10,6 +10,8 @@ import { getDatabasePath, getEncryptedDatabasePath } from './utils/keys.util'
 import { getMasterKey, clearMasterKey, encryptFile } from './utils/crypto.util'
 import { createLogger } from './utils/logger.util'
 import { startAutoBackup, stopAutoBackup } from './utils/auto-backup.util'
+import { initializeTouchBar, clearTouchBar } from './touchbar/touchbar.manager'
+import { registerTouchBarHandlers } from './ipc/touchbar.ipc'
 
 const log = createLogger('Main')
 
@@ -45,6 +47,7 @@ function createWindow() {
   }
 
   win.on('closed', () => {
+    clearTouchBar()
     win = null
   })
 }
@@ -53,6 +56,7 @@ async function bootstrap() {
   try {
     // Always register setup handlers first (needed for wizard and settings)
     registerSetupHandlers()
+    registerTouchBarHandlers()
 
     // Backward compatibility: if DB exists but setup flag is false, mark as complete
     const dbPath = getDatabasePath()
@@ -79,6 +83,8 @@ async function bootstrap() {
 
     // Create window
     createWindow()
+
+    if (win) initializeTouchBar(win)
   } catch (error) {
     log.error('Failed to bootstrap application:', error)
     app.quit()

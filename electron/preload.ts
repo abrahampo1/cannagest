@@ -173,6 +173,16 @@ const api = {
       ipcRenderer.invoke('settings:setPointsRatio', ratio),
   },
 
+  touchbar: {
+    sendRouteChange: (context: { route: string; cashRegisterOpen?: boolean }) =>
+      ipcRenderer.send('touchbar:routeChanged', context),
+    onAction: (callback: (action: string) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, action: string) => callback(action)
+      ipcRenderer.on('touchbar:action', handler)
+      return () => { ipcRenderer.removeListener('touchbar:action', handler) }
+    },
+  },
+
   backup: {
     createLocal: () =>
       ipcRenderer.invoke('backup:createLocal'),
