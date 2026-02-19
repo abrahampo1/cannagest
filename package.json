@@ -2,7 +2,7 @@
   "name": "cannagest",
   "description": "Sistema de gestión integral para cooperativas cannábicas",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.2.1",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Abraham Leiro <abraham@cpsoftware.es>",
   "type": "module",
