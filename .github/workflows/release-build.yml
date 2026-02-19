@@ -8,8 +8,38 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact_glob: |
+              release/*.exe
+              release/*.blockmap
+              release/latest.yml
+          - os: macos-13
+            platform: mac-intel
+            artifact_glob: |
+              release/*.dmg
+              release/*.blockmap
+              release/latest-mac.yml
+          - os: macos-latest
+            platform: mac-silicon
+            artifact_glob: |
+              release/*.dmg
+              release/*.blockmap
+              release/latest-mac.yml
+          - os: ubuntu-latest
+            platform: linux
+            artifact_glob: |
+              release/*.AppImage
+              release/*.deb
+              release/latest-linux.yml
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.platform }})
 
     steps:
       - name: Checkout code
@@ -38,7 +68,4 @@ jobs:
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/*.exe
-            release/*.blockmap
-            release/latest.yml
+          files: ${{ matrix.artifact_glob }}
