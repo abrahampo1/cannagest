@@ -7,11 +7,23 @@ const path = require('path')
  *
  * electron-builder skips dot-prefixed dirs in node_modules during its
  * dependency detection, so .prisma never gets included automatically.
- * With asar disabled, the app lives in resources/app/.
+ *
+ * On macOS the app lives inside a .app bundle:
+ *   <appOutDir>/<ProductName>.app/Contents/Resources/app/
+ * On Windows/Linux it lives at:
+ *   <appOutDir>/resources/app/
  */
 exports.default = async function afterPack(context) {
   const source = path.join(__dirname, '..', 'node_modules', '.prisma', 'client')
-  const appDir = path.join(context.appOutDir, 'resources', 'app')
+
+  let appDir
+  if (context.electronPlatformName === 'darwin') {
+    const appName = context.packager.appInfo.productFilename
+    appDir = path.join(context.appOutDir, `${appName}.app`, 'Contents', 'Resources', 'app')
+  } else {
+    appDir = path.join(context.appOutDir, 'resources', 'app')
+  }
+
   const dest = path.join(appDir, 'node_modules', '.prisma', 'client')
 
   console.log(`[afterPack] Copying .prisma/client → ${dest}`)
