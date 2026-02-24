@@ -110,3 +110,85 @@
   60% { transform: scale(1.2); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* Expulsion overlay animations */
+.expulsion-overlay-enter {
+  animation: expulsionOverlayIn 0.4s ease-out;
+}
+
+@keyframes expulsionOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.expulsion-vignette {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(220, 38, 38, 0.08) 100%);
+}
+
+.expulsion-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(220, 38, 38, 0.015) 2px,
+    rgba(220, 38, 38, 0.015) 4px
+  );
+  animation: expulsionScanlines 8s linear infinite;
+}
+
+@keyframes expulsionScanlines {
+  from { background-position: 0 0; }
+  to { background-position: 0 100%; }
+}
+
+.expulsion-icon-pulse {
+  animation: expulsionIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes expulsionIconPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { transform: scale(1.05); box-shadow: 0 0 30px 5px rgba(239, 68, 68, 0.15); }
+}
+
+.expulsion-ring-1 {
+  animation: expulsionRing 2s ease-out infinite;
+}
+
+.expulsion-ring-2 {
+  animation: expulsionRing 2s ease-out 0.6s infinite;
+}
+
+@keyframes expulsionRing {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.expulsion-text-glitch {
+  animation: expulsionGlitch 3s ease-in-out infinite;
+}
+
+@keyframes expulsionGlitch {
+  0%, 90%, 100% { text-shadow: none; }
+  92% { text-shadow: -2px 0 rgba(239, 68, 68, 0.7), 2px 0 rgba(59, 130, 246, 0.7); }
+  94% { text-shadow: 2px 0 rgba(239, 68, 68, 0.7), -2px 0 rgba(59, 130, 246, 0.7); }
+  96% { text-shadow: none; }
+}
+
+.expulsion-countdown-pulse {
+  animation: expulsionCountdownPulse 1s ease-out;
+}
+
+@keyframes expulsionCountdownPulse {
+  0% { transform: scale(1.4); opacity: 0.5; }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.expulsion-ready-enter {
+  animation: expulsionReadyIn 0.5s ease-out;
+}
+
+@keyframes expulsionReadyIn {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}

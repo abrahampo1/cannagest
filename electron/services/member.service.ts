@@ -39,7 +39,7 @@ const updateMemberSchema = z.object({
   membershipFee: z.number().min(0).optional(),
   membershipStart: z.string().optional().nullable(),
   membershipEnd: z.string().optional().nullable(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'EXPELLED']).optional(),
   referredById: z.string().optional().nullable(),
 })
 
@@ -240,6 +240,11 @@ export async function updateMember(id: string, data: unknown): Promise<IpcRespon
   }
   if ('membershipEnd' in validated) {
     updateData.membershipEnd = validated.membershipEnd ? new Date(validated.membershipEnd) : null
+  }
+
+  // Expelling a member also deactivates them
+  if (validated.status === 'EXPELLED') {
+    updateData.isActive = false
   }
 
   const member = await prisma.member.update({ where: { id }, data: updateData })

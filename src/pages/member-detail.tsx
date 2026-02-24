@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Nfc, Wallet, TrendingUp, TrendingDown, Calculator, Clock, Users, Coins, PlusCircle, MinusCircle, DollarSign } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ArrowLeft, Nfc, Wallet, TrendingUp, TrendingDown, Calculator, Clock, Users, Coins, PlusCircle, MinusCircle, DollarSign, UserX, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
@@ -13,6 +14,7 @@ const statusConfig: Record<string, { bg: string; text: string; label: string }> 
   ACTIVE: { bg: 'bg-lime-400/20', text: 'text-lime-400', label: 'ACTIVO' },
   INACTIVE: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'INACTIVO' },
   SUSPENDED: { bg: 'bg-amber-400/20', text: 'text-amber-400', label: 'SUSPENDIDO' },
+  EXPELLED: { bg: 'bg-red-600/20', text: 'text-red-500', label: 'EXPULSADO' },
 }
 
 const membershipLabels: Record<string, string> = {
@@ -71,6 +73,156 @@ function formatDateTime(d: string) {
   })
 }
 
+// ─── Full-screen Expulsion Overlay ───────────────────────────────────
+
+interface ExpulsionOverlayProps {
+  open: boolean
+  memberName: string
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOverlayProps) {
+  const [countdown, setCountdown] = useState(5)
+  const [phase, setPhase] = useState<'counting' | 'ready'>('counting')
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setCountdown(5)
+      setPhase('counting')
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      return
+    }
+
+    setCountdown(5)
+    setPhase('counting')
+
+    intervalRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!)
+          setPhase('ready')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [open])
+
+  const handleCancel = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    onCancel()
+  }, [onCancel])
+
+  if (!open) return null
+
+  const progress = ((5 - countdown) / 5) * 100
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center expulsion-overlay-enter">
+      {/* Background - dark with red vignette */}
+      <div className="absolute inset-0 bg-zinc-950/98" />
+      <div className="absolute inset-0 expulsion-vignette" />
+
+      {/* Animated scan lines */}
+      <div className="absolute inset-0 expulsion-scanlines pointer-events-none" />
+
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center gap-8 px-6 max-w-lg w-full">
+        {/* Warning icon with pulse */}
+        <div className="relative">
+          <div className="w-28 h-28 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center expulsion-icon-pulse">
+            <ShieldAlert size={56} className="text-red-500" />
+          </div>
+          {/* Ring animation */}
+          <div className="absolute inset-0 rounded-full border-2 border-red-500/40 expulsion-ring-1" />
+          <div className="absolute inset-0 rounded-full border border-red-500/20 expulsion-ring-2" />
+        </div>
+
+        {/* Title */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-black font-mono tracking-widest text-red-500 uppercase expulsion-text-glitch">
+            EXPULSION
+          </h1>
+          <p className="text-zinc-400 font-mono text-sm tracking-wide">
+            Estas a punto de expulsar a
+          </p>
+          <p className="text-xl font-black text-white tracking-tight uppercase">
+            {memberName}
+          </p>
+        </div>
+
+        {/* Countdown / Progress */}
+        <div className="w-full max-w-xs space-y-4">
+          {phase === 'counting' ? (
+            <>
+              {/* Big countdown number */}
+              <div className="text-center">
+                <span className="text-8xl font-black font-mono text-red-500 tabular-nums expulsion-countdown-pulse" key={countdown}>
+                  {countdown}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full transition-all duration-1000 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
+              <p className="text-center text-zinc-500 font-mono text-xs tracking-widest uppercase">
+                Preparando expulsion...
+              </p>
+            </>
+          ) : (
+            <>
+              {/* Ready state */}
+              <div className="text-center expulsion-ready-enter">
+                <UserX size={40} className="text-red-500 mx-auto mb-3" />
+                <p className="text-zinc-300 font-mono text-sm tracking-wide mb-1">
+                  Confirma la expulsion del socio
+                </p>
+                <p className="text-zinc-500 font-mono text-[10px] tracking-widest uppercase">
+                  Esta accion no se puede deshacer
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-4 w-full max-w-xs">
+          <button
+            onClick={handleCancel}
+            className="flex-1 px-6 py-3 rounded-lg bg-zinc-800 text-zinc-300 font-mono font-bold text-sm uppercase tracking-widest
+              hover:bg-zinc-700 transition-colors border border-zinc-700"
+          >
+            Cancelar
+          </button>
+          {phase === 'ready' && (
+            <button
+              onClick={onConfirm}
+              className="flex-1 px-6 py-3 rounded-lg bg-red-600 text-white font-mono font-bold text-sm uppercase tracking-widest
+                hover:bg-red-500 transition-colors expulsion-ready-enter border border-red-500"
+            >
+              Expulsar
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────
+
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -104,6 +256,10 @@ export default function MemberDetailPage() {
 
   const [payments, setPayments] = useState<any[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
+
+  // Expulsion
+  const [expulsionOpen, setExpulsionOpen] = useState(false)
+  const [expelling, setExpelling] = useState(false)
 
   useEffect(() => {
     if (id) loadMember()
@@ -257,6 +413,24 @@ export default function MemberDetailPage() {
     setAdjustModalOpen(true)
   }
 
+  async function handleExpelMember() {
+    setExpelling(true)
+    try {
+      const res = await window.api.member.update(id!, { status: 'EXPELLED' })
+      if (res.success) {
+        toast.success(`${member.firstName} ${member.lastName} ha sido expulsado`)
+        setExpulsionOpen(false)
+        setMember((m: any) => m ? { ...m, status: 'EXPELLED', isActive: false } : m)
+      } else {
+        toast.error(res.error || 'Error al expulsar socio')
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setExpelling(false)
+    }
+  }
+
   const stats = useMemo(() => {
     const loads = allTransactions.filter(t => t.type === 'LOAD')
     const consumes = allTransactions.filter(t => t.type === 'CONSUME')
@@ -403,6 +577,11 @@ export default function MemberDetailPage() {
               <Button size="sm" variant="secondary" onClick={openAdjustModal} title="Ajustar puntos">
                 <MinusCircle size={14} /> Ajustar
               </Button>
+              {member.status !== 'EXPELLED' && (
+                <Button size="sm" variant="danger" onClick={() => setExpulsionOpen(true)} title="Expulsar socio">
+                  <UserX size={14} /> Expulsar
+                </Button>
+              )}
             </div>
             <div className="text-right">
               <p className="text-[10px] text-zinc-500 font-mono tracking-widest uppercase">Balance</p>
@@ -426,9 +605,12 @@ export default function MemberDetailPage() {
               <p className="text-2xl font-black font-mono text-lime-400">{member.pointsBalance}</p>
               <p className="text-[10px] font-mono text-zinc-600 tracking-widest">PUNTOS</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button size="sm" onClick={openLoadModal}><PlusCircle size={14} /> Cargar</Button>
               <Button size="sm" variant="secondary" onClick={openAdjustModal}><MinusCircle size={14} /> Ajustar</Button>
+              {member.status !== 'EXPELLED' && (
+                <Button size="sm" variant="danger" onClick={() => setExpulsionOpen(true)}><UserX size={14} /> Expulsar</Button>
+              )}
             </div>
           </div>
         </div>
@@ -689,6 +871,14 @@ export default function MemberDetailPage() {
           </Button>
         </div>
       </Modal>
+
+      {/* Expulsion Overlay */}
+      <ExpulsionOverlay
+        open={expulsionOpen}
+        memberName={`${member.firstName} ${member.lastName}`}
+        onConfirm={handleExpelMember}
+        onCancel={() => setExpulsionOpen(false)}
+      />
     </div>
   )
 }
