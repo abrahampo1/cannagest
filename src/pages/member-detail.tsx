@@ -78,25 +78,28 @@ function formatDateTime(d: string) {
 interface ExpulsionOverlayProps {
   open: boolean
   memberName: string
-  onConfirm: () => void
+  onConfirm: (reason: string) => void
   onCancel: () => void
 }
 
 function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOverlayProps) {
   const [countdown, setCountdown] = useState(5)
   const [phase, setPhase] = useState<'counting' | 'ready'>('counting')
+  const [reason, setReason] = useState('')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!open) {
       setCountdown(5)
       setPhase('counting')
+      setReason('')
       if (intervalRef.current) clearInterval(intervalRef.current)
       return
     }
 
     setCountdown(5)
     setPhase('counting')
+    setReason('')
 
     intervalRef.current = setInterval(() => {
       setCountdown(prev => {
@@ -183,14 +186,29 @@ function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOv
           ) : (
             <>
               {/* Ready state */}
-              <div className="text-center expulsion-ready-enter">
-                <UserX size={40} className="text-red-500 mx-auto mb-3" />
-                <p className="text-zinc-300 font-mono text-sm tracking-wide mb-1">
-                  Confirma la expulsion del socio
-                </p>
-                <p className="text-zinc-500 font-mono text-[10px] tracking-widest uppercase">
-                  Esta accion no se puede deshacer
-                </p>
+              <div className="expulsion-ready-enter space-y-4">
+                <div className="text-center">
+                  <UserX size={40} className="text-red-500 mx-auto mb-3" />
+                  <p className="text-zinc-300 font-mono text-sm tracking-wide mb-1">
+                    Confirma la expulsion del socio
+                  </p>
+                  <p className="text-zinc-500 font-mono text-[10px] tracking-widest uppercase">
+                    Esta accion no se puede deshacer
+                  </p>
+                </div>
+                <div className="w-full">
+                  <label className="block text-[10px] font-mono tracking-widest text-zinc-500 uppercase mb-2">
+                    Motivo de expulsion *
+                  </label>
+                  <textarea
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    placeholder="Escribe el motivo de la expulsion..."
+                    rows={3}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 font-mono
+                      placeholder:text-zinc-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 resize-none"
+                  />
+                </div>
               </div>
             </>
           )}
@@ -207,9 +225,11 @@ function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOv
           </button>
           {phase === 'ready' && (
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm(reason)}
+              disabled={!reason.trim()}
               className="flex-1 px-6 py-3 rounded-lg bg-red-600 text-white font-mono font-bold text-sm uppercase tracking-widest
-                hover:bg-red-500 transition-colors expulsion-ready-enter border border-red-500"
+                hover:bg-red-500 transition-colors expulsion-ready-enter border border-red-500
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600"
             >
               Expulsar
             </button>
@@ -413,14 +433,14 @@ export default function MemberDetailPage() {
     setAdjustModalOpen(true)
   }
 
-  async function handleExpelMember() {
+  async function handleExpelMember(reason: string) {
     setExpelling(true)
     try {
-      const res = await window.api.member.update(id!, { status: 'EXPELLED' })
+      const res = await window.api.member.update(id!, { status: 'EXPELLED', expulsionReason: reason })
       if (res.success) {
         toast.success(`${member.firstName} ${member.lastName} ha sido expulsado`)
         setExpulsionOpen(false)
-        setMember((m: any) => m ? { ...m, status: 'EXPELLED', isActive: false } : m)
+        setMember((m: any) => m ? { ...m, status: 'EXPELLED', isActive: false, expulsionReason: reason, expulsionDate: new Date().toISOString() } : m)
       } else {
         toast.error(res.error || 'Error al expulsar socio')
       }
@@ -726,6 +746,30 @@ export default function MemberDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Expulsion Info */}
+      {member.status === 'EXPELLED' && (
+        <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-5">
+          <h2 className="text-xs font-mono font-bold tracking-widest text-red-400 uppercase mb-4 flex items-center gap-2">
+            <ShieldAlert size={14} className="text-red-500" />
+            Socio expulsado
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <span className="text-[10px] font-mono tracking-widest text-zinc-600 uppercase">Fecha de expulsion</span>
+              <p className="font-mono font-medium text-red-400 mt-0.5">
+                {member.expulsionDate ? formatDateTime(member.expulsionDate) : '-'}
+              </p>
+            </div>
+            <div>
+              <span className="text-[10px] font-mono tracking-widest text-zinc-600 uppercase">Motivo</span>
+              <p className="font-mono font-medium text-zinc-200 mt-0.5 whitespace-pre-wrap">
+                {member.expulsionReason || '-'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs - urban style */}
       <div>

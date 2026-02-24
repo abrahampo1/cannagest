@@ -63,6 +63,8 @@ model Member {
   // Estado
   isActive        Boolean  @default(true)
   status          String @default("ACTIVE")
+  expulsionReason String?
+  expulsionDate   DateTime?
 
   // Puntos
   pointsBalance   Float    @default(0)

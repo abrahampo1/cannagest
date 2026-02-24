@@ -137,6 +137,7 @@ export async function ensureDatabaseReady(prisma: PrismaClient): Promise<void> {
   await addNfcTagColumn(prisma)
   await addNfcTagColumnToUsers(prisma)
   await addReferredByColumn(prisma)
+  await addExpulsionFields(prisma)
 }
 
 /**
@@ -264,6 +265,27 @@ async function addReferredByColumn(prisma: PrismaClient): Promise<void> {
 }
 
 /**
+ * Adds expulsionReason and expulsionDate columns to members table if they don't exist (incremental migration)
+ */
+async function addExpulsionFields(prisma: PrismaClient): Promise<void> {
+  try {
+    const cols = await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `PRAGMA table_info('members')`
+    )
+    if (cols.some(c => c.name === 'expulsionReason')) return
+
+    log.info('Adding expulsion fields to members table...')
+    await prisma.$executeRawUnsafe(`ALTER TABLE "members" ADD COLUMN "expulsionReason" TEXT`)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "members" ADD COLUMN "expulsionDate" DATETIME`)
+    log.info('Expulsion fields added successfully')
+  } catch (err: any) {
+    if (!err.message?.includes('duplicate column') && !err.message?.includes('already exists')) {
+      log.error('Failed to add expulsion fields', err)
+    }
+  }
+}
+
+/**
  * Inline migration SQL as fallback when migration file is not available
  */
 function getInlineMigrationSQL(): string {
@@ -298,6 +320,8 @@ CREATE TABLE IF NOT EXISTS "members" (
     "membershipEnd" DATETIME,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "expulsionReason" TEXT,
+    "expulsionDate" DATETIME,
     "pointsBalance" REAL NOT NULL DEFAULT 0,
     "referredById" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
