@@ -39,7 +39,8 @@ const updateMemberSchema = z.object({
   membershipFee: z.number().min(0).optional(),
   membershipStart: z.string().optional().nullable(),
   membershipEnd: z.string().optional().nullable(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'EXPELLED']).optional(),
+  expulsionReason: z.string().optional(),
   referredById: z.string().optional().nullable(),
 })
 
@@ -73,11 +74,19 @@ export async function getMemberByNfc(nfcTagId: string): Promise<IpcResponse> {
   return ok(decryptMember(member))
 }
 
-export async function getMembers(params?: ListParams & { inactiveMonths?: number }): Promise<IpcResponse<PaginatedData<any>>> {
+export async function getMembers(params?: ListParams & { inactiveMonths?: number; statusFilter?: string }): Promise<IpcResponse<PaginatedData<any>>> {
   const prisma = await getPrismaClient()
   const page = params?.page ?? 1
   const pageSize = params?.pageSize ?? 20
-  const where: any = { isActive: true }
+  const statusFilter = params?.statusFilter ?? 'ACTIVE'
+  const where: any = {}
+
+  if (statusFilter === 'ACTIVE') {
+    where.isActive = true
+  } else if (statusFilter === 'EXPELLED') {
+    where.status = 'EXPELLED'
+  }
+  // 'ALL' → no filter
 
   const allMembers = await prisma.member.findMany({
     where,
@@ -240,6 +249,19 @@ export async function updateMember(id: string, data: unknown): Promise<IpcRespon
   }
   if ('membershipEnd' in validated) {
     updateData.membershipEnd = validated.membershipEnd ? new Date(validated.membershipEnd) : null
+  }
+
+  // Remove expulsionReason from generic update (handled separately below)
+  delete updateData.expulsionReason
+
+  // Expelling a member also deactivates them and records reason/date
+  if (validated.status === 'EXPELLED') {
+    if (!validated.expulsionReason?.trim()) {
+      return fail('El motivo de expulsion es requerido')
+    }
+    updateData.isActive = false
+    updateData.expulsionReason = validated.expulsionReason.trim()
+    updateData.expulsionDate = new Date()
   }
 
   const member = await prisma.member.update({ where: { id }, data: updateData })

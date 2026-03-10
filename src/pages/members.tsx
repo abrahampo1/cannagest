@@ -14,6 +14,7 @@ const statusBadge: Record<string, { variant: 'success' | 'warning' | 'danger'; l
   ACTIVE: { variant: 'success', label: 'Activo' },
   INACTIVE: { variant: 'danger', label: 'Inactivo' },
   SUSPENDED: { variant: 'warning', label: 'Suspendido' },
+  EXPELLED: { variant: 'danger', label: 'Expulsado' },
 }
 
 const membershipOptions = [
@@ -35,6 +36,7 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false)
   const [nfcScannerOpen, setNfcScannerOpen] = useState(false)
   const [inactiveFilter, setInactiveFilter] = useState('0')
+  const [statusFilter, setStatusFilter] = useState('ACTIVE')
   const [form, setForm] = useState({
     firstName: '', lastName: '', dni: '', email: '',
     phone: '', address: '', dateOfBirth: '',
@@ -42,13 +44,13 @@ export default function MembersPage() {
     nfcTagId: '',
   })
 
-  useEffect(() => { load() }, [page, search, inactiveFilter])
+  useEffect(() => { load() }, [page, search, inactiveFilter, statusFilter])
 
   async function load() {
     setLoading(true)
     try {
       const inactiveMonths = parseInt(inactiveFilter) || undefined
-      const res = await window.api.member.getAll({ page, pageSize: 15, search, inactiveMonths })
+      const res = await window.api.member.getAll({ page, pageSize: 15, search, inactiveMonths, statusFilter })
       if (res.success) {
         setMembers(res.data.items)
         setPagination(res.data)
@@ -112,6 +114,12 @@ export default function MembersPage() {
       toast.error(res.error || 'Error')
     }
   }
+
+  const statusFilterOptions = [
+    { value: 'ACTIVE', label: 'Activos' },
+    { value: 'EXPELLED', label: 'Expulsados' },
+    { value: 'ALL', label: 'Todos' },
+  ]
 
   const inactiveOptions = [
     { value: '0', label: 'Todos los socios' },
@@ -179,6 +187,14 @@ export default function MembersPage() {
             onChange={e => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
+        <div className="w-44">
+          <Select
+            label=""
+            options={statusFilterOptions}
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+          />
+        </div>
         <div className="w-52">
           <Select
             label=""
@@ -199,8 +215,12 @@ export default function MembersPage() {
         actions={(m) => (
           <>
             <Button variant="ghost" size="sm" onClick={() => navigate('/members/' + m.id)}><Eye size={14} /></Button>
-            <Button variant="ghost" size="sm" onClick={() => openEdit(m)}><Pencil size={14} /></Button>
-            <Button variant="ghost" size="sm" onClick={() => handleDelete(m)}><Trash2 size={14} className="text-red-400" /></Button>
+            {m.status !== 'EXPELLED' && (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => openEdit(m)}><Pencil size={14} /></Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(m)}><Trash2 size={14} className="text-red-400" /></Button>
+              </>
+            )}
           </>
         )}
       />
