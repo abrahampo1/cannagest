@@ -625,7 +625,7 @@ This software is distributed under the **CannaGest Source Available License v1.0
 | Modify and create derivatives (non-commercial) | Commercial use without authorization |
 | Redistribute with license and attribution | Sublicense |
 
-For commercial licensing, contact **Abraham Leiro** — [abraham@cpsoftware.es](mailto:abraham@cpsoftware.es)
+For commercial licensing, contact **Abraham Leiro** — [abraham@asoft.es](mailto:abraham@asoft.es)
 
 See the [LICENSE](./LICENSE) file for full terms.
 
