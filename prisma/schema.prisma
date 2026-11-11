@@ -58,7 +58,7 @@ model Member {
   membershipType  String @default("NO_FEE")
   membershipFee   Float    @default(0)
   membershipStart DateTime?
-  membershipEnd   DateTime?
+  membershipEnd   DateTime? // Fecha hasta la que la cuota está vigente
 
   // Estado
   isActive        Boolean  @default(true)
@@ -352,4 +352,3 @@ model CashRegister {
   @@index([status])
   @@index([openDate])
 }
-

@@ -133,6 +133,7 @@ export async function ensureDatabaseReady(prisma: PrismaClient): Promise<void> {
   }
 
   // Incremental migrations for existing databases
+  await addMembershipEndColumn(prisma)
   await makeEmailNullable(prisma)
   await addNfcTagColumn(prisma)
   await addNfcTagColumnToUsers(prisma)
@@ -281,6 +282,64 @@ async function addExpulsionFields(prisma: PrismaClient): Promise<void> {
   } catch (err: any) {
     if (!err.message?.includes('duplicate column') && !err.message?.includes('already exists')) {
       log.error('Failed to add expulsion fields', err)
+    }
+  }
+}
+
+/**
+ * Ensures existing databases can persist the membership expiration date.
+ */
+async function addMembershipEndColumn(prisma: PrismaClient): Promise<void> {
+  try {
+    const cols = await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `PRAGMA table_info('members')`
+    )
+    if (!cols.some(c => c.name === 'membershipEnd')) {
+      log.info('Adding membershipEnd column to members table...')
+      await prisma.$executeRawUnsafe(`ALTER TABLE "members" ADD COLUMN "membershipEnd" DATETIME`)
+      log.info('membershipEnd column added successfully')
+    }
+
+    const tables = await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='membership_payments'`
+    )
+    if (tables.length > 0) {
+      const backfilled = await prisma.$executeRawUnsafe(`
+        UPDATE "members"
+        SET "membershipEnd" = (
+          SELECT "periodEnd" FROM "membership_payments"
+          WHERE "membership_payments"."memberId" = "members"."id"
+          ORDER BY "periodEnd" DESC, "paymentDate" DESC
+          LIMIT 1
+        ),
+        "membershipType" = CASE
+          WHEN "membershipType" = 'NO_FEE' AND (
+            SELECT "paymentType" FROM "membership_payments"
+            WHERE "membership_payments"."memberId" = "members"."id"
+            ORDER BY "periodEnd" DESC, "paymentDate" DESC
+            LIMIT 1
+          ) IN ('MONTHLY', 'ANNUAL')
+          THEN (
+            SELECT "paymentType" FROM "membership_payments"
+            WHERE "membership_payments"."memberId" = "members"."id"
+            ORDER BY "periodEnd" DESC, "paymentDate" DESC
+            LIMIT 1
+          )
+          ELSE "membershipType"
+        END
+        WHERE "membershipEnd" IS NULL
+          AND EXISTS (
+            SELECT 1 FROM "membership_payments"
+            WHERE "membership_payments"."memberId" = "members"."id"
+          )
+      `)
+      if (backfilled > 0) {
+        log.info(`Backfilled expiration dates for ${backfilled} members from payment history`)
+      }
+    }
+  } catch (err: any) {
+    if (!err.message?.includes('duplicate column') && !err.message?.includes('already exists')) {
+      log.error('Failed to add membershipEnd column', err)
     }
   }
 }

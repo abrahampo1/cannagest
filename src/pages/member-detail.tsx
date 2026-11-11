@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { intervalToDuration } from 'date-fns'
 import { ArrowLeft, Nfc, Wallet, TrendingUp, TrendingDown, Calculator, Clock, Users, Coins, PlusCircle, MinusCircle, DollarSign, UserX, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,17 +49,16 @@ function timeAgo(date: string | Date): string {
   const now = new Date()
   const d = new Date(date)
   const diffMs = now.getTime() - d.getTime()
+  if (diffMs < 60000) return 'AHORA'
+  const duration = intervalToDuration({ start: d, end: now })
   const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'AHORA'
   if (diffMin < 60) return `${diffMin}m`
   const diffHours = Math.floor(diffMin / 60)
   if (diffHours < 24) return `${diffHours}h`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays === 1) return '1 DIA'
-  if (diffDays < 30) return `${diffDays} DIAS`
-  const diffMonths = Math.floor(diffDays / 30)
-  if (diffMonths === 1) return '1 MES'
-  return `${diffMonths} MESES`
+  if (duration.years) return `${duration.years} ${duration.years === 1 ? 'AÑO' : 'AÑOS'}`
+  if (duration.months) return `${duration.months} ${duration.months === 1 ? 'MES' : 'MESES'}`
+  const days = duration.days || 0
+  return days === 1 ? '1 DIA' : `${days} DIAS`
 }
 
 function formatDate(d: string) {
@@ -276,6 +276,9 @@ export default function MemberDetailPage() {
 
   const [payments, setPayments] = useState<any[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [renewalModalOpen, setRenewalModalOpen] = useState(false)
+  const [renewalPeriod, setRenewalPeriod] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY')
+  const [renewalSaving, setRenewalSaving] = useState(false)
 
   // Expulsion
   const [expulsionOpen, setExpulsionOpen] = useState(false)
@@ -327,6 +330,25 @@ export default function MemberDetailPage() {
       if (res.success) setPayments(res.data)
     } finally {
       setPaymentsLoading(false)
+    }
+  }
+
+  async function handleRenewMembership() {
+    setRenewalSaving(true)
+    try {
+      const res = await window.api.membershipPayment.renew({ memberId: id!, period: renewalPeriod })
+      if (res.success) {
+        setMember((current: any) => current ? { ...current, ...res.data.member } : current)
+        setPayments(current => [res.data.payment, ...current])
+        setRenewalModalOpen(false)
+        toast.success(`Cuota renovada hasta el ${formatDate(res.data.member.membershipEnd)}`)
+      } else {
+        toast.error(res.error || 'Error al renovar la cuota')
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setRenewalSaving(false)
     }
   }
 
@@ -541,6 +563,7 @@ export default function MemberDetailPage() {
   }
 
   const st = statusConfig[member.status] || statusConfig.ACTIVE
+  const membershipStatus = member.membershipStatus || 'EXPIRED'
   const tabs = [
     { key: 'transactions' as const, label: 'TRANSACCIONES' },
     { key: 'sales' as const, label: 'COMPRAS' },
@@ -610,6 +633,30 @@ export default function MemberDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-zinc-900 rounded-lg p-4 border border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase">Estado de la cuota</p>
+          <p className={`font-mono font-bold mt-1 ${
+            membershipStatus === 'CURRENT' ? 'text-lime-400' :
+              membershipStatus === 'NO_FEE' ? 'text-amber-400' : 'text-red-400'
+          }`}>
+            {membershipStatus === 'CURRENT' ? 'VIGENTE' :
+              membershipStatus === 'NO_FEE' ? 'SIN CUOTA' : 'CADUCADA'}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {member.membershipEnd
+              ? `Válida hasta ${formatDate(member.membershipEnd)}`
+              : 'Sin fecha de expiración registrada'}
+          </p>
+        </div>
+        <Button onClick={() => {
+          setRenewalPeriod(member.membershipType === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY')
+          setRenewalModalOpen(true)
+        }}>
+          <Wallet size={15} /> Registrar pago / renovar
+        </Button>
       </div>
 
       {/* Stats Cards - dark grid */}
@@ -912,6 +959,48 @@ export default function MemberDetailPage() {
           <Button variant="secondary" onClick={() => setRegisterModalOpen(false)}>Cancelar</Button>
           <Button onClick={handleOpenRegisterAndContinue} loading={openingRegister}>
             <DollarSign size={16} /> Abrir Caja y Continuar
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Membership Renewal Modal */}
+      <Modal open={renewalModalOpen} onClose={() => setRenewalModalOpen(false)} title="Renovar cuota" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-300">
+            Elige el periodo para {member.firstName} {member.lastName}.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant={renewalPeriod === 'MONTHLY' ? 'primary' : 'secondary'}
+              onClick={() => setRenewalPeriod('MONTHLY')}
+            >
+              1 mes
+            </Button>
+            <Button
+              type="button"
+              variant={renewalPeriod === 'ANNUAL' ? 'primary' : 'secondary'}
+              onClick={() => setRenewalPeriod('ANNUAL')}
+            >
+              1 año
+            </Button>
+          </div>
+          <div className="bg-zinc-800/70 rounded-lg px-4 py-3">
+            <p className="text-xs text-zinc-400">Importe registrado según la cuota configurada</p>
+            <p className="text-lg font-bold font-mono text-lime-400 mt-1">
+              {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(member.membershipFee || 0)}
+            </p>
+          </div>
+          <p className="text-xs text-zinc-500">
+            {membershipStatus === 'CURRENT'
+              ? 'El periodo se añadirá a la fecha de expiración vigente.'
+              : 'El nuevo periodo comenzará hoy.'}
+          </p>
+        </div>
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
+          <Button variant="secondary" onClick={() => setRenewalModalOpen(false)}>Cancelar</Button>
+          <Button onClick={handleRenewMembership} loading={renewalSaving}>
+            <Wallet size={15} /> Confirmar pago
           </Button>
         </div>
       </Modal>

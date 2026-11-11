@@ -78,6 +78,8 @@ const api = {
       ipcRenderer.invoke('membershipPayment:getByMember', memberId),
     create: (data: any) =>
       ipcRenderer.invoke('membershipPayment:create', data),
+    renew: (data: { memberId: string; period: 'MONTHLY' | 'ANNUAL' }) =>
+      ipcRenderer.invoke('membershipPayment:renew', data),
     delete: (id: string) =>
       ipcRenderer.invoke('membershipPayment:delete', id),
   },

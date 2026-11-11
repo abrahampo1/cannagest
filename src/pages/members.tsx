@@ -158,6 +158,16 @@ export default function MembersPage() {
       },
     },
     {
+      key: 'membershipStatus', header: 'Cuota',
+      render: (m) => {
+        const status = m.membershipStatus
+        if (status === 'NO_FEE') return <Badge variant="warning">Sin cuota</Badge>
+        return status === 'CURRENT'
+          ? <Badge variant="success">Vigente</Badge>
+          : <Badge variant="danger">Caducada</Badge>
+      },
+    },
+    {
       key: 'pointsBalance', header: 'Balance',
       render: (m) => <span className="font-mono font-bold text-lime-400">{m.pointsBalance} pts</span>,
     },

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isBefore, startOfDay } from 'date-fns'
 import { getPrismaClient } from '../database/client'
 import { encryptFields, decryptFields, decryptField } from '../utils/crypto.util'
 import { ok, fail, type IpcResponse, type PaginatedData, type ListParams } from '../types/ipc.types'
@@ -48,6 +49,19 @@ function decryptMember(member: any) {
   return decryptFields(member, [...ENCRYPTED_FIELDS])
 }
 
+function addMembershipStatus<T extends { membershipType: string; membershipEnd: Date | null }>(
+  member: T,
+  now = new Date(),
+) {
+  const membershipStatus = member.membershipType === 'NO_FEE'
+    ? 'NO_FEE'
+    : member.membershipEnd && !isBefore(member.membershipEnd, startOfDay(now))
+      ? 'CURRENT'
+      : 'EXPIRED'
+
+  return { ...member, membershipStatus }
+}
+
 async function checkUniqueDni(dni: string, excludeId?: string): Promise<boolean> {
   const prisma = await getPrismaClient()
   const members = await prisma.member.findMany({ select: { id: true, dni: true } })
@@ -71,7 +85,7 @@ export async function getMemberByNfc(nfcTagId: string): Promise<IpcResponse> {
   const member = await prisma.member.findUnique({ where: { nfcTagId } })
   if (!member) return fail('Llavero no registrado')
   if (!member.isActive) return fail('Socio inactivo')
-  return ok(decryptMember(member))
+  return ok(addMembershipStatus(decryptMember(member)))
 }
 
 export async function getMembers(params?: ListParams & { inactiveMonths?: number; statusFilter?: string }): Promise<IpcResponse<PaginatedData<any>>> {
@@ -104,7 +118,7 @@ export async function getMembers(params?: ListParams & { inactiveMonths?: number
   let decrypted = allMembers.map(m => {
     const lastConsumeDate = m.pointsTransactions[0]?.createdAt?.toISOString() || null
     const base = decryptMember({ ...m, pointsTransactions: undefined })
-    return { ...base, lastConsumeDate }
+    return { ...addMembershipStatus(base), lastConsumeDate }
   })
 
   if (params?.search) {
@@ -152,7 +166,7 @@ export async function getMemberById(id: string): Promise<IpcResponse> {
     },
   })
   if (!member) return fail('Socio no encontrado')
-  return ok(decryptMember(member))
+  return ok(addMembershipStatus(decryptMember(member)))
 }
 
 export async function createMember(data: unknown): Promise<IpcResponse> {

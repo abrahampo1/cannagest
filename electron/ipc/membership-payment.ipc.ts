@@ -10,6 +10,10 @@ export function registerMembershipPaymentHandlers() {
     return paymentService.createPayment(data)
   })
 
+  handleIpc('membershipPayment:renew', async (_e, data) => {
+    return paymentService.renewMembership(data)
+  })
+
   handleIpc('membershipPayment:delete', async (_e, id: string) => {
     return paymentService.deletePayment(id)
   })

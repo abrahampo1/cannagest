@@ -60,7 +60,7 @@ model Member {
   membershipType  MembershipType @default(NO_FEE)
   membershipFee   Float    @default(0)
   membershipStart DateTime?
-  membershipEnd   DateTime?
+  membershipEnd   DateTime? // Fecha hasta la que la cuota está vigente
 
   // Estado
   isActive        Boolean  @default(true)
