@@ -78,11 +78,12 @@ function formatDateTime(d: string) {
 interface ExpulsionOverlayProps {
   open: boolean
   memberName: string
+  loading?: boolean
   onConfirm: (reason: string) => void
   onCancel: () => void
 }
 
-function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOverlayProps) {
+function ExpulsionOverlay({ open, memberName, loading = false, onConfirm, onCancel }: ExpulsionOverlayProps) {
   const [countdown, setCountdown] = useState(5)
   const [phase, setPhase] = useState<'counting' | 'ready'>('counting')
   const [reason, setReason] = useState('')
@@ -218,20 +219,22 @@ function ExpulsionOverlay({ open, memberName, onConfirm, onCancel }: ExpulsionOv
         <div className="flex gap-4 w-full max-w-xs">
           <button
             onClick={handleCancel}
+            disabled={loading}
             className="flex-1 px-6 py-3 rounded-lg bg-zinc-800 text-zinc-300 font-mono font-bold text-sm uppercase tracking-widest
-              hover:bg-zinc-700 transition-colors border border-zinc-700"
+              hover:bg-zinc-700 transition-colors border border-zinc-700
+              disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           {phase === 'ready' && (
             <button
               onClick={() => onConfirm(reason)}
-              disabled={!reason.trim()}
+              disabled={!reason.trim() || loading}
               className="flex-1 px-6 py-3 rounded-lg bg-red-600 text-white font-mono font-bold text-sm uppercase tracking-widest
                 hover:bg-red-500 transition-colors expulsion-ready-enter border border-red-500
                 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600"
             >
-              Expulsar
+              {loading ? 'Expulsando...' : 'Expulsar'}
             </button>
           )}
         </div>
@@ -1009,6 +1012,7 @@ export default function MemberDetailPage() {
       <ExpulsionOverlay
         open={expulsionOpen}
         memberName={`${member.firstName} ${member.lastName}`}
+        loading={expelling}
         onConfirm={handleExpelMember}
         onCancel={() => setExpulsionOpen(false)}
       />
