@@ -2,7 +2,7 @@
 <h1 align="center">CannaGest</h1>
 
 <p align="center">
-  <strong>Cross-platform desktop application for cannabis cooperative management</strong>
+  <strong>Cross-platform desktop application for association management</strong>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## About
 
-CannaGest is a cross-platform desktop application built with Electron and React, designed for end-to-end management of cannabis cooperatives. It provides a modern dark-themed interface to manage members, inventory, an internal points-based economy, a point-of-sale terminal, cash register operations, and operational expenses — all with **multi-layer encryption** protecting sensitive data at rest and in transit.
+CannaGest is a cross-platform desktop application built with Electron and React, designed for end-to-end management of member-based associations. It provides a modern dark-themed interface to manage members, inventory, an internal points-based economy, a point-of-sale terminal, cash register operations, and operational expenses — all with **multi-layer encryption** protecting sensitive data at rest and in transit.
 
 ---
 
